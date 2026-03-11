@@ -19,9 +19,19 @@ app.message(async ({ message, client, say }) => {
     timestamp: message.ts,
   });
 
-  const urls = files.map((f) => f.url_private).filter((u): u is string => !!u);
+  const messageText = "text" in message ? (message.text ?? "") : "";
+  const isWebpage = messageText.toLowerCase().includes("webpage");
 
-  if (urls.length === 0) return;
+  const items = files
+    .filter((f): f is typeof f & { url_private: string } => !!f.url_private)
+    .map((f) => {
+      if (isWebpage && f.name?.endsWith(".html")) {
+        return { url: f.url_private, contentType: "text/html" };
+      }
+      return f.url_private;
+    });
+
+  if (items.length === 0) return;
 
   try {
     const cdnResponse = await fetch("https://cdnapi.mahadk.com/api/v3/new", {
@@ -31,7 +41,7 @@ app.message(async ({ message, client, say }) => {
         Authorization: `Bearer ${env.CDN_API_KEY}`,
         "X-Download-Authorization": `Bearer ${env.SLACK_BOT_TOKEN}`,
       },
-      body: JSON.stringify(urls),
+      body: JSON.stringify(items),
     });
 
     if (!cdnResponse.ok) {
